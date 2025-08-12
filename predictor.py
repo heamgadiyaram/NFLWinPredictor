@@ -171,6 +171,43 @@ for col in ['AveragePointsScored',
     final_encoded_schedule[f'Diff_{col}'] = final_encoded_schedule[f'{col}_Home'] - final_encoded_schedule[f'{col}_Visitor']
 
 final_encoded_schedule = final_encoded_schedule[['Home', 'Away'] + [col for col in final_encoded_schedule.columns if 'Diff_' in col]]
-print(final_encoded_schedule.head())
 
+#prepare training data
 
+training_encoded_home = merged_scores.merge(team_features, left_on='Home', right_on='Team', how='left')
+final_encoded_training = training_encoded_home.merge(team_features, left_on='Visitor', right_on='Team', suffixes=('_Home', '_Visitor'), how='left')
+
+for col in ['AveragePointsScored', 
+            'AveragePointsAllowed', 
+            'WinRate',
+            'AverageYardsPerPlay', 
+            'AverageYardsPerGame', 
+            'AveragePassCompletionRate', 
+            'AverageTouchdownsPerGame', 
+            'AverageRushYards', 
+            'AverageSuccessfulPlayRate', 
+            'AverageTurnoverRate']:
+    final_encoded_training[f'Diff_{col}'] = final_encoded_training[f'{col}_Home'] - final_encoded_training[f'{col}_Visitor']
+
+training_data = final_encoded_training[[col for col in final_encoded_training.columns if 'Diff_' in col]]
+training_labels = final_encoded_training['HomeWon']
+
+#drop NaN values consistently because of errors
+mask = ~training_data.isna().any(axis=1) & ~training_labels.isna()
+training_data_cleaned = training_data[mask]
+training_labels_cleaned = training_labels[mask]
+
+#create and evaluate logistic regression model
+logreg = LogisticRegression(max_iter=1000)
+cross_val_scores = cross_val_score(logreg, training_data_cleaned, training_labels_cleaned, cv=5)
+
+logreg.fit(training_data_cleaned, training_labels_cleaned)
+
+#predict probability of home team winning upcoming game
+upcoming_game_probabilities = logreg.predict_proba(final_encoded_schedule[[col for col in final_encoded_schedule if 'Diff_' in col]])
+upcoming_game_prob_home_win = upcoming_game_probabilities[:, 1]
+final_encoded_schedule['HomeWinProbability'] = upcoming_game_prob_home_win
+
+final_predictions = final_encoded_schedule[['Home', 'Away', 'HomeWinProbability']]
+
+final_predictions.to_csv('2025_NFL_Predictions.csv', index=False)
