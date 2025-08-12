@@ -146,15 +146,31 @@ team_features = pd.DataFrame({
     'AveragePassCompletionRate': overall_avg_pass_completion,
     'AverageTouchdownsPerGame': overall_avg_touchdowns_per_game,
     'AverageRushYards': overall_avg_rush_yards,
-    'AverageSuccessFulPlayRate': overall_avg_successful_plays,
+    'AverageSuccessfulPlayRate': overall_avg_successful_plays,
     'AverageTurnoverRate': overall_avg_tunover_rate
 })
 
 team_features.reset_index(inplace=True)
 team_features.rename(columns={'index': 'Team'}, inplace=True)
 
-print(team_features.head())
+#merge schedule into features df
+encoded_schedule_home = nfl_schedule.merge(team_features, left_on='Home', right_on='Team', how='left')
+final_encoded_schedule = encoded_schedule_home.merge(team_features, left_on='Away', right_on='Team', suffixes=('_Home', '_Visitor'), how='left')
 
+#calculate differences in features because they may be more representative of predictions
+for col in ['AveragePointsScored', 
+            'AveragePointsAllowed', 
+            'WinRate',
+            'AverageYardsPerPlay', 
+            'AverageYardsPerGame', 
+            'AveragePassCompletionRate', 
+            'AverageTouchdownsPerGame', 
+            'AverageRushYards', 
+            'AverageSuccessfulPlayRate', 
+            'AverageTurnoverRate']:
+    final_encoded_schedule[f'Diff_{col}'] = final_encoded_schedule[f'{col}_Home'] - final_encoded_schedule[f'{col}_Visitor']
 
+final_encoded_schedule = final_encoded_schedule[['Home', 'Away'] + [col for col in final_encoded_schedule.columns if 'Diff_' in col]]
+print(final_encoded_schedule.head())
 
 
