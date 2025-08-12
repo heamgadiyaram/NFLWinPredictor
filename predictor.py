@@ -6,8 +6,8 @@ from sklearn.model_selection import cross_val_score
 play_data_2024 = pd.read_csv("pbp-2024.csv")
 nfl_scores_2024 = pd.read_csv("box_scores.csv", sep='\t')
 
-play_data_2024['GameDate'] = pd.to_datetime(play_data_2024['GameDate']).dt.strftime('%-m/%-d/%y')
-nfl_scores_2024['Date'] = pd.to_datetime(nfl_scores_2024['Date']).dt.strftime('%-m/%-d/%y')
+play_data_2024['GameDate'] = pd.to_datetime(play_data_2024['GameDate'], format='%m/%d/%y').dt.strftime('%-m/%-d/%y')
+nfl_scores_2024['Date'] = pd.to_datetime(nfl_scores_2024['Date'], format='%m/%d/%y').dt.strftime('%-m/%-d/%y')
 
 team_mapping = {
     'Arizona Cardinals': 'ARI',
@@ -66,6 +66,10 @@ for col in ['Visitor', 'VisitorScore', 'Home', 'HomeScore']:
     merged_scores[col] = merge_visitor[col].combine_first(merge_home[col])
 
 merged_scores['Homewon'] = merged_scores['HomeScore'] > merged_scores['VisitorScore']
-print(merged_scores.head())
-#print(play_data_2024.head())
-#print(nfl_scores_2024.head())
+
+nfl_schedule = pd.read_csv('nfl_schedule.csv')
+nfl_schedule['Home'] = nfl_schedule['Home'].map(team_mapping)
+nfl_schedule['Away'] = nfl_schedule['Away'].map(team_mapping)
+
+
+
