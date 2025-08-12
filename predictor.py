@@ -83,40 +83,77 @@ overall_avg_points_allowed = (avg_points_allowed_home + avg_points_allowed_visit
 
 #total wins
 home_wins = merged_scores.groupby('Home')['HomeWon'].sum()
-visitor_wins = merged_scores.groupby('Visitor').apply(lambda x: len(x) - x['HomeWon'].sum())
+visitor_wins = (1 - merged_scores['HomeWon']).groupby(merged_scores['Visitor']).sum()
+
 total_games_home = merged_scores['Home'].value_counts()
 total_games_visitor = merged_scores['Visitor'].value_counts()
 
 #calc win percentage
 overall_wins = home_wins + visitor_wins
 total_games = total_games_home + total_games_visitor
-total_wins = overall_wins / total_games
+total_win_rate = overall_wins / total_games
 
-print(merged_scores.columns)
 #calculate yards per play
-avg_yards_per_play_home = merged_scores.groupby('Home')['Yards'].mean()
-avg_yards_per_play_visitor = merged_scores.groupby('Visitor'['Yards']).mean()
+avg_yards_per_play = merged_scores.groupby('OffenseTeam')['Yards'].mean()
 
 #calculate yards per game
-avg_yards_per_game_home = merged_scores.groupby(['SeasonYear', 'Home'])['Yards'].mean()
-avg_yards_per_game_visitor = merged_scores.groupby(['SeasonYear', 'Visitor'])['Yards'].mean()
-overall_avg_yards_per_game = (avg_yards_per_game_home + avg_yards_per_game_visitor) / 2
+total_yards_per_game = merged_scores.groupby(['GameId', 'OffenseTeam'])['Yards'].sum().reset_index()
+avg_yards_per_game = total_yards_per_game.groupby('OffenseTeam')['Yards'].mean()
 
 #calculate average pass completion rate
-avg_pass_completion_rate_home = merged_scores.groupby('Home').apply(lambda x: 1 - x['IsIncomplete'].mean())
-avg_pass_completion_rate_visitor = merged_scores.groupby('Visitor').apply(lambda x: 1 - x['IsIncomplete'].mean())
-overall_avg_pass_completion = (avg_pass_completion_rate_home + avg_yards_per_game_visitor) / 2
+avg_pass_completion_rate_home = 1 - merged_scores.groupby('Home')['IsIncomplete'].mean()
+avg_pass_completion_rate_visitor = 1 - merged_scores.groupby('Visitor')['IsIncomplete'].mean()
+overall_avg_pass_completion = (avg_pass_completion_rate_home + avg_pass_completion_rate_visitor) / 2
 
 #calculate touchdowns per game
-avg_touchdowns_per_game_home = merged_scores.groupby(['SeasonYear', 'Home'])['IsTouchdown'].mean()
-avg_touchdowns_per_game_visitor = merged_scores.groupby(['SeasonYear', 'Home'])['IsTouchdown'].mean()
+avg_touchdowns_per_game_home = merged_scores.groupby('Home')['IsTouchdown'].mean()
+avg_touchdowns_per_game_visitor = merged_scores.groupby('Visitor')['IsTouchdown'].mean()
 overall_avg_touchdowns_per_game = (avg_touchdowns_per_game_home + avg_touchdowns_per_game_visitor) / 2
 
-#calculate rush success rate
-avg_rush_yards_home = merged_scores.groupby('Home').apply(lambda x: x['Yards'][x['IsRush'] == 1].mean())
-avg_rush_yards_visitor = merged_scores.groupby('Visitor').apply(lambda x: x['Yards'][x['IsRush'] == 1].mean())
+#calculate rush yards
+avg_rush_yards_home = merged_scores[merged_scores['IsRush'] == 1].groupby('Home')['Yards'].mean()
+avg_rush_yards_visitor = merged_scores[merged_scores['IsRush'] == 1].groupby('Visitor')['Yards'].mean()
+
 overall_avg_rush_yards = (avg_rush_yards_home + avg_rush_yards_visitor) / 2
 
+
+#defensive features
+
+#create 'SuccessfulPlay' column in merged df
+merged_scores['SuccessfulPlay'] = merged_scores['IsTouchdown'].astype(bool) | (~merged_scores['IsInterception'].astype(bool) & ~merged_scores['IsFumble'].astype(bool))
+
+#calculate successful play rates
+avg_success_rate_home = merged_scores.groupby('Home')['SuccessfulPlay'].mean()
+avg_success_rate_visitor = merged_scores.groupby('Visitor')['SuccessfulPlay'].mean()
+overall_avg_successful_plays = (avg_success_rate_home + avg_success_rate_visitor) / 2
+
+#create column for turnovers
+merged_scores['Turnover'] = merged_scores['IsInterception'] | merged_scores['IsFumble']
+
+#calculate turnover rates
+avg_turnover_rate_home = merged_scores.groupby('Home')['Turnover'].mean()
+avg_turnover_rate_visitor = merged_scores.groupby('Visitor')['Turnover'].mean()
+overall_avg_tunover_rate = (avg_turnover_rate_home + avg_turnover_rate_visitor)/ 2
+
+
+#create df for newly calculated features
+team_features = pd.DataFrame({
+    'AveragePointsScored': overall_avg_points_scored,
+    'AveragePointsAllowed': overall_avg_points_allowed,
+    'WinRate': total_win_rate,
+    'AverageYardsPerPlay': avg_yards_per_play,
+    'AverageYardsPerGame': avg_yards_per_game,
+    'AveragePassCompletionRate': overall_avg_pass_completion,
+    'AverageTouchdownsPerGame': overall_avg_touchdowns_per_game,
+    'AverageRushYards': overall_avg_rush_yards,
+    'AverageSuccessFulPlayRate': overall_avg_successful_plays,
+    'AverageTurnoverRate': overall_avg_tunover_rate
+})
+
+team_features.reset_index(inplace=True)
+team_features.rename(columns={'index': 'Team'}, inplace=True)
+
+print(team_features.head())
 
 
 
